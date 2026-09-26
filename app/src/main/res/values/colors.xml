@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Colores usados fuera de Compose: icono de launcher y fondo de ventana. -->
+    <color name="azul_bethel">#1B365D</color>
+    <color name="dorado_bethel">#D8B95C</color>
+    <color name="fondo_claro">#F7F8FA</color>
+    <color name="fondo_oscuro">#0F1418</color>
+    <color name="ic_launcher_background">#1B365D</color>
+</resources>

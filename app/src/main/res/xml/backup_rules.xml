@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+   Reglas de respaldo (Android 11 e inferiores). Por defecto se respalda todo,
+   incluida la base de datos Room de la congregación.
+   Documentación: https://developer.android.com/guide/topics/data/autobackup
+-->
+<full-backup-content>
+    <!--
+    <include domain="sharedpref" path="."/>
+    <exclude domain="sharedpref" path="device.xml"/>
+    -->
+</full-backup-content>

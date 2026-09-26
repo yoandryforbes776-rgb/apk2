@@ -1,0 +1,28 @@
+# Gradle
+.gradle/
+build/
+/captures/
+.kotlin/
+
+# Configuración local (rutas del SDK, firmas, etc.)
+local.properties
+keystore.properties
+*.jks
+*.keystore
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+.navigation/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Compilación nativa
+.externalNativeBuild/
+.cxx/
+
+# Registros y volcados
+*.log
+*.hprof
