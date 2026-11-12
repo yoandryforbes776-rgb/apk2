@@ -1,0 +1,26 @@
+services:
+  router:
+    build: .
+    image: free-ai-router:latest
+    container_name: free-ai-router
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8080
+      ALLOW_INSECURE_ADMIN: "false"
+    ports:
+      - "8080:8080"
+    volumes:
+      # Persistimos claves añadidas en caliente y cooldowns.
+      - ./data:/app/data
+      - ./config:/app/config:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=4).status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true

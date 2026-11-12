@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0b0f14" />
+<title>Free AI Router · consola</title>
+<style>
+  :root {
+    --bg: #0b0f14;
+    --panel: #121924;
+    --panel-2: #182231;
+    --line: #243244;
+    --text: #e8eef7;
+    --muted: #8fa0b8;
+    --accent: #47d7ac;
+    --accent-2: #6aa6ff;
+    --warn: #ffb454;
+    --err: #ff6b6b;
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: radial-gradient(1200px 600px at 10% -10%, #16283a 0%, var(--bg) 55%);
+    color: var(--text); font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex; flex-direction: column; min-height: 100dvh;
+  }
+  header {
+    display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+    border-bottom: 1px solid var(--line); background: rgba(11, 15, 20, .8);
+    backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 10;
+  }
+  .logo { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #06231c; font-weight: 800; }
+  header h1 { font-size: 15px; margin: 0; font-weight: 650; letter-spacing: .2px; }
+  header .sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .grow { flex: 1; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); box-shadow: 0 0 0 3px rgba(255,255,255,.04); }
+  .dot.ok { background: var(--accent); }
+  .dot.bad { background: var(--err); }
+  button {
+    font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 11px; padding: 8px 12px; cursor: pointer; transition: .15s;
+  }
+  button:hover { border-color: #35506b; }
+  button.primary { background: linear-gradient(180deg, #57e3b9, #35c79c); color: #06231c; border: 0; font-weight: 700; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .icon-btn { padding: 8px 10px; }
+
+  main { flex: 1; display: flex; flex-direction: column; width: 100%; max-width: 900px; margin: 0 auto; }
+  #chat { flex: 1; overflow-y: auto; padding: 18px 14px 8px; display: flex; flex-direction: column; gap: 12px; }
+
+  .empty { margin: auto; text-align: center; color: var(--muted); max-width: 420px; padding: 20px; }
+  .empty h2 { color: var(--text); font-size: 18px; margin: 0 0 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 16px; }
+  .chip { border: 1px solid var(--line); background: var(--panel); color: var(--text); border-radius: 999px; padding: 7px 12px; font-size: 12.5px; cursor: pointer; }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+
+  .msg { display: flex; gap: 10px; }
+  .msg .avatar { width: 28px; height: 28px; flex: 0 0 28px; border-radius: 9px; display: grid; place-items: center;
+    font-size: 12px; font-weight: 700; background: var(--panel-2); color: var(--muted); border: 1px solid var(--line); }
+  .msg.user .avatar { background: #1d2b3f; color: var(--accent-2); }
+  .msg.assistant .avatar { background: #123028; color: var(--accent); }
+  .bubble { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 10px 13px; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: anywhere; max-width: 100%; }
+  .msg.user .bubble { background: #17233a; border-color: #24395c; }
+  .bubble p { margin: 0; }
+  .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 7px; font-size: 11px; color: var(--muted); }
+  .tag { border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; background: #0f1722; }
+  .tag.provider { color: var(--accent); border-color: #235c4c; }
+  .tag.err { color: var(--err); border-color: #5c2b2b; }
+  .cursor::after { content: "▍"; animation: blink 1s steps(2) infinite; color: var(--accent); }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .composer { position: sticky; bottom: 0; padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    background: linear-gradient(180deg, transparent, rgba(11,15,20,.95) 30%); }
+  .composer-inner { background: var(--panel); border: 1px solid var(--line); border-radius: 18px;
+    padding: 8px 8px 8px 12px; display: flex; gap: 8px; align-items: flex-end; box-shadow: 0 12px 30px rgba(0,0,0,.35); }
+  textarea { flex: 1; background: transparent; border: 0; color: var(--text); font: inherit; resize: none;
+    outline: none; max-height: 140px; padding: 8px 0; }
+  .composer .hint { font-size: 10.5px; color: var(--muted); text-align: center; margin-top: 6px; }
+
+  dialog { border: 1px solid var(--line); background: var(--panel); color: var(--text); border-radius: 18px;
+    padding: 0; width: min(560px, calc(100vw - 24px)); max-height: 85dvh; }
+  dialog::backdrop { background: rgba(0,0,0,.6); backdrop-filter: blur(2px); }
+  .sheet-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  .sheet-head h3 { margin: 0; font-size: 14px; }
+  .sheet-body { padding: 14px 16px; overflow-y: auto; max-height: 65dvh; }
+  label.field { display: block; font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+  input[type=text], input[type=password], select {
+    width: 100%; margin-top: 6px; background: #0e1620; color: var(--text); border: 1px solid var(--line);
+    border-radius: 11px; padding: 10px 12px; font: inherit; outline: none;
+  }
+  input:focus, select:focus { border-color: var(--accent-2); }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .switch { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); }
+  .prov { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; background: #0f1722; }
+  .prov .top { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .prov .top .name { font-weight: 600; }
+  .prov .details { color: var(--muted); font-size: 11.5px; margin-top: 4px; }
+  .pill { font-size: 10.5px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .pill.ok { color: var(--accent); border-color: #235c4c; }
+  .pill.warn { color: var(--warn); border-color: #5c4a23; }
+  .pill.bad { color: var(--err); border-color: #5c2b2b; }
+  .toast { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%); background: #223; border: 1px solid var(--line);
+    color: var(--text); padding: 9px 14px; border-radius: 12px; font-size: 12.5px; opacity: 0; pointer-events: none; transition: .2s; z-index: 50; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">AI</div>
+  <div>
+    <h1>Free AI Router</h1>
+    <div class="sub">una API · muchos proveedores gratis</div>
+  </div>
+  <div class="grow"></div>
+  <span class="dot" id="statusDot" title="estado"></span>
+  <button class="icon-btn" id="btnStatus" title="Estado de proveedores">Estado</button>
+  <button class="icon-btn" id="btnSettings" title="Ajustes">⚙︎</button>
+</header>
+
+<main>
+  <div id="chat">
+    <div class="empty" id="empty">
+      <h2>Listo para conversar</h2>
+      <div>Prueba el gateway desde el navegador del móvil. La petición se reparte entre los proveedores gratuitos y rota de clave cuando alguno llega a su límite.</div>
+      <div class="chips">
+        <button class="chip" data-prompt="Explícame en 5 líneas qué es un gateway de APIs de IA.">¿Qué es un gateway?</button>
+        <button class="chip" data-prompt="Escribe un ejemplo mínimo de Kotlin con OkHttp que llame a este router.">Ejemplo Kotlin</button>
+        <button class="chip" data-prompt="Dame ideas de funciones con IA para una app Android.">Ideas para la APK</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="composer">
+    <div class="composer-inner">
+      <textarea id="input" rows="1" placeholder="Escribe un mensaje…"></textarea>
+      <button class="primary" id="btnSend">Enviar</button>
+    </div>
+    <div class="hint">Modelo: <span id="modelHint">auto</span> · stream <span id="streamHint">on</span></div>
+  </div>
+</main>
+
+<dialog id="settings">
+  <div class="sheet-head"><h3>Ajustes</h3><div class="grow"></div><button class="icon-btn" data-close>Cerrar</button></div>
+  <div class="sheet-body">
+    <label class="field">Token del router (ROUTER_TOKEN)
+      <input type="password" id="token" placeholder="vacío si no usas token" autocomplete="off" />
+    </label>
+    <label class="field">Modelo
+      <select id="model"></select>
+    </label>
+    <div class="row" style="justify-content:space-between;margin-bottom:14px">
+      <label class="switch"><input type="checkbox" id="stream" /> Streaming (SSE)</label>
+      <button id="btnRefresh">Recargar modelos</button>
+    </div>
+    <div style="color:var(--muted);font-size:12px">
+      El token se guarda solo en este navegador (localStorage). El endpoint es <code id="endpoint"></code>.
+    </div>
+  </div>
+</dialog>
+
+<dialog id="statusDlg">
+  <div class="sheet-head"><h3>Estado de proveedores</h3><div class="grow"></div><button class="icon-btn" data-close>Cerrar</button></div>
+  <div class="sheet-body" id="statusBody"><div class="prov">Cargando…</div></div>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (sel) => document.querySelector(sel);
+const chatEl = $("#chat");
+const inputEl = $("#input");
+const sendBtn = $("#btnSend");
+const settingsDlg = $("#settings");
+const statusDlg = $("#statusDlg");
+
+const store = {
+  get token() { return localStorage.getItem("router_token") || ""; },
+  set token(v) { v ? localStorage.setItem("router_token", v) : localStorage.removeItem("router_token"); },
+  get model() { return localStorage.getItem("router_model") || "auto"; },
+  set model(v) { localStorage.setItem("router_model", v || "auto"); },
+  get stream() { return localStorage.getItem("router_stream") !== "0"; },
+  set stream(v) { localStorage.setItem("router_stream", v ? "1" : "0"); },
+};
+
+let history = [];
+let modelsLoaded = false;
+
+function headers(json = true) {
+  const h = {};
+  if (json) h["Content-Type"] = "application/json";
+  if (store.token) h["Authorization"] = "Bearer " + store.token;
+  return h;
+}
+
+function toast(text) {
+  const el = $("#toast");
+  el.textContent = text;
+  el.classList.add("show");
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove("show"), 2600);
+}
+
+function esc(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function addMessage(role, text) {
+  $("#empty")?.remove();
+  const wrap = document.createElement("div");
+  wrap.className = "msg " + role;
+  wrap.innerHTML = `
+    <div class="avatar">${role === "user" ? "TÚ" : "AI"}</div>
+    <div>
+      <div class="bubble">${esc(text)}</div>
+      <div class="meta"></div>
+    </div>`;
+  chatEl.appendChild(wrap);
+  chatEl.scrollTop = chatEl.scrollHeight;
+  return wrap;
+}
+
+function setMeta(node, parts) {
+  const meta = node.querySelector(".meta");
+  meta.innerHTML = parts.map((p) => `<span class="tag ${p.cls || ""}">${esc(p.text)}</span>`).join("");
+}
+
+async function checkHealth() {
+  try {
+    const res = await fetch("/health");
+    const data = await res.json();
+    const dot = $("#statusDot");
+    dot.className = "dot " + (data.providers_ready > 0 ? "ok" : "bad");
+    dot.title = `${data.providers_ready} proveedores listos · ${data.keys} claves`;
+  } catch {
+    $("#statusDot").className = "dot bad";
+  }
+}
+
+async function loadModels() {
+  const select = $("#model");
+  try {
+    const res = await fetch("/v1/models", { headers: headers(false) });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    const current = store.model;
+    select.innerHTML = "";
+    const auto = document.createElement("option");
+    auto.value = "auto";
+    auto.textContent = "auto (recomendado)";
+    select.appendChild(auto);
+    const groups = {};
+    for (const model of data.data) {
+      if (model.id === "auto") continue;
+      const provider = model.x_router?.provider || model.owned_by || "otros";
+      (groups[provider] ||= []).push(model.id);
+    }
+    for (const [provider, ids] of Object.entries(groups)) {
+      const group = document.createElement("optgroup");
+      group.label = provider;
+      for (const id of ids) {
+        const opt = document.createElement("option");
+        opt.value = id;
+        opt.textContent = id;
+        group.appendChild(opt);
+      }
+      select.appendChild(group);
+    }
+    select.value = [...select.options].some((o) => o.value === current) ? current : "auto";
+    modelsLoaded = true;
+  } catch (err) {
+    select.innerHTML = '<option value="auto">auto</option>';
+  }
+  $("#modelHint").textContent = select.value;
+}
+
+function parseSSEChunk(chunk, onEvent) {
+  for (const line of chunk.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("data:")) continue;
+    const payload = trimmed.slice(5).trim();
+    if (!payload || payload === "[DONE]") continue;
+    try { onEvent(JSON.parse(payload)); } catch { /* ignorar */ }
+  }
+}
+
+async function send(text) {
+  if (!text.trim()) return;
+  inputEl.value = "";
+  inputEl.style.height = "auto";
+  addMessage("user", text);
+  history.push({ role: "user", content: text });
+
+  const node = addMessage("assistant", "");
+  const bubble = node.querySelector(".bubble");
+  bubble.classList.add("cursor");
+
+  const model = store.model;
+  const useStream = store.stream;
+  sendBtn.disabled = true;
+  const started = performance.now();
+
+  try {
+    const res = await fetch("/v1/chat/completions", {
+      method: "POST",
+      headers: headers(true),
+      body: JSON.stringify({ model, messages: history, stream: useStream }),
+    });
+
+    if (!res.ok) {
+      let message = "Error HTTP " + res.status;
+      let attempts = [];
+      try {
+        const err = await res.json();
+        message = err.error?.message || message;
+        attempts = err.error?.router?.attempts || [];
+      } catch { /* sin JSON */ }
+      bubble.classList.remove("cursor");
+      bubble.textContent = message;
+      setMeta(node, [
+        { text: "error", cls: "err" },
+        ...attempts.slice(-3).map((a) => ({ text: `${a.provider}: ${a.kind || a.status}`, cls: "err" })),
+      ]);
+      history.pop();
+      return;
+    }
+
+    const provider = res.headers.get("x-router-provider") || "?";
+    const usedModel = res.headers.get("x-router-model") || model;
+    const latency = res.headers.get("x-router-latency-ms") || Math.round(performance.now() - started);
+    let content = "";
+
+    if (!useStream || !res.body) {
+      const data = await res.json();
+      content = data.choices?.[0]?.message?.content || "";
+      bubble.textContent = content;
+    } else {
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let idx;
+        while ((idx = buffer.indexOf("\n\n")) >= 0) {
+          const event = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 2);
+          parseSSEChunk(event, (data) => {
+            const delta = data.choices?.[0]?.delta?.content;
+            if (delta) {
+              content += delta;
+              bubble.textContent = content;
+              chatEl.scrollTop = chatEl.scrollHeight;
+            }
+          });
+        }
+      }
+    }
+
+    bubble.classList.remove("cursor");
+    if (!content) bubble.textContent = "(respuesta vacía)";
+    history.push({ role: "assistant", content });
+    setMeta(node, [
+      { text: provider, cls: "provider" },
+      { text: usedModel },
+      { text: `${latency} ms` },
+    ]);
+  } catch (err) {
+    bubble.classList.remove("cursor");
+    bubble.textContent = "No se pudo conectar con el router: " + err.message;
+    setMeta(node, [{ text: "red", cls: "err" }]);
+    history.pop();
+  } finally {
+    sendBtn.disabled = false;
+    checkHealth();
+  }
+}
+
+async function showStatus() {
+  statusDlg.showModal();
+  const body = $("#statusBody");
+  body.innerHTML = '<div class="prov">Cargando…</div>';
+  try {
+    const res = await fetch("/v1/router/status", { headers: headers(false) });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    if (!data.providers.length) {
+      body.innerHTML = '<div class="prov">No hay proveedores configurados. Añade claves en .env</div>';
+      return;
+    }
+    body.innerHTML = data.providers.map((p) => {
+      const ready = p.keys_available > 0;
+      const cls = ready ? "ok" : (p.keys_total > 0 ? "warn" : "bad");
+      const label = ready ? "listo" : (p.keys_total > 0 ? "en espera" : "sin clave");
+      const extra = p.last_error ? `<div class="details">${esc(p.last_error)}</div>` : "";
+      return `<div class="prov">
+        <div class="top">
+          <span class="name">${esc(p.label)}</span>
+          <span class="pill ${cls}">${label}</span>
+          <span class="grow"></span>
+          <span class="pill">${p.keys_available}/${p.keys_total} claves</span>
+        </div>
+        <div class="details">${esc(p.default_model || "")}${p.requires_key ? "" : " · sin clave"}</div>
+        ${extra}
+      </div>`;
+    }).join("");
+  } catch (err) {
+    body.innerHTML = `<div class="prov"><span class="pill bad">error</span> ${esc(err.message)}<div class="details">Revisa el ROUTER_TOKEN en Ajustes.</div></div>`;
+  }
+}
+
+// ---------------------------------------------------------------- eventos
+sendBtn.addEventListener("click", () => send(inputEl.value));
+inputEl.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    send(inputEl.value);
+  }
+});
+inputEl.addEventListener("input", () => {
+  inputEl.style.height = "auto";
+  inputEl.style.height = Math.min(140, inputEl.scrollHeight) + "px";
+});
+document.querySelectorAll("[data-prompt]").forEach((btn) =>
+  btn.addEventListener("click", () => send(btn.dataset.prompt))
+);
+document.querySelectorAll("[data-close]").forEach((btn) =>
+  btn.addEventListener("click", () => btn.closest("dialog").close())
+);
+$("#btnSettings").addEventListener("click", () => {
+  $("#token").value = store.token;
+  $("#model").value = store.model;
+  $("#stream").checked = store.stream;
+  $("#endpoint").textContent = location.origin + "/v1";
+  settingsDlg.showModal();
+  if (!modelsLoaded) loadModels();
+});
+$("#btnStatus").addEventListener("click", showStatus);
+$("#btnRefresh").addEventListener("click", loadModels);
+$("#token").addEventListener("change", (e) => { store.token = e.target.value.trim(); loadModels(); checkHealth(); });
+$("#model").addEventListener("change", (e) => { store.model = e.target.value; $("#modelHint").textContent = e.target.value; });
+$("#stream").addEventListener("change", (e) => { store.stream = e.target.checked; $("#streamHint").textContent = e.target.checked ? "on" : "off"; });
+
+$("#modelHint").textContent = store.model;
+$("#streamHint").textContent = store.stream ? "on" : "off";
+checkHealth();
+loadModels();
+</script>
+</body>
+</html>

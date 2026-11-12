@@ -1,0 +1,29 @@
+# Secretos y estado local
+.env
+data/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+build/
+dist/
+
+# Android
+*.apk
+*.aab
+.gradle/
+build/
+local.properties
+
+# Editores / sistema
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
