@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import socket
 import sys
 import time
 from pathlib import Path
@@ -33,6 +34,34 @@ RESET = "\033[0m"
 
 def paint(text: str, color: str, enabled: bool) -> str:
     return f"{color}{text}{RESET}" if enabled else text
+
+
+def lan_ip() -> str:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        sock.connect(("8.8.8.8", 80))
+        return sock.getsockname()[0]
+    except OSError:
+        return "IP_DEL_MOVIL"
+    finally:
+        sock.close()
+
+
+def print_harness_block(settings: Settings, port: int) -> None:
+    token = settings.router_token or "(vacío: cualquier API key vale)"
+    ip = lan_ip()
+    print()
+    print("  ┌───────────────────────────────────────────────────────────────────┐")
+    print("  │  Pega esto en tu harness / APK (proveedor \"OpenAI compatible\")    │")
+    print("  ├───────────────────────────────────────────────────────────────────┤")
+    print(f"  │  Base URL  :  http://127.0.0.1:{port}/v1")
+    print(f"  │  API Key   :  {token}")
+    print("  │  Modelo    :  auto")
+    print("  ├───────────────────────────────────────────────────────────────────┤")
+    print("  │  Desde otro dispositivo de la red Wi-Fi:")
+    print(f"  │  Base URL  :  http://{ip}:{port}/v1")
+    print(f"  │  Consola   :  http://127.0.0.1:{port}/")
+    print("  └───────────────────────────────────────────────────────────────────┘")
 
 
 async def ping_provider(upstream: Upstream, provider: Provider, key) -> dict:
@@ -123,6 +152,9 @@ async def main_async(args: argparse.Namespace) -> int:
     if ready == 0:
         print(paint("Añade claves en .env (ver .env.example) o con POST /admin/keys", YELLOW, color))
 
+    if args.harness:
+        print_harness_block(settings, args.port)
+
     exit_code = 0 if ready or not args.ping else 1
 
     if args.ping:
@@ -178,6 +210,8 @@ def main() -> int:
     parser.add_argument("--provider", help="limita la prueba a un proveedor")
     parser.add_argument("--models", help="lista los modelos que reporta un proveedor")
     parser.add_argument("--json", action="store_true", help="imprime también el resultado en JSON")
+    parser.add_argument("--harness", action="store_true", help="muestra los datos para pegar en la APK/harness")
+    parser.add_argument("--port", type=int, default=8080, help="puerto para el bloque --harness (8080)")
     args = parser.parse_args()
     try:
         return asyncio.run(main_async(args))

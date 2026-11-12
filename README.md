@@ -114,19 +114,27 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 8080
 Abre `http://IP-DEL-SERVIDOR:8080` → consola de chat con streaming.
 Documentación interactiva: `http://IP-DEL-SERVIDOR:8080/docs`.
 
-### Opción B · Dentro del Android con Termux
+### Opción B · Dentro del Android (Termux / Linux proot) — modo harness
 
 ```bash
-pkg install git -y
+pkg install git python -y
 git clone https://github.com/yoandryforbes776-rgb/apk2.git
 cd apk2
-bash scripts/termux-setup.sh
-termux-wake-lock
-source .venv/bin/activate
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8080
+nano .env                  # pega tus claves y ROUTER_TOKEN
+bash scripts/android.sh    # instala, arranca y muestra qué pegar en tu APK
 ```
 
-Desde la propia APK: `http://127.0.0.1:8080/v1`. Desde el emulador: `http://10.0.2.2:8080/v1`.
+El script imprime el bloque exacto para el harness:
+
+```
+Base URL : http://127.0.0.1:8080/v1
+API Key  : tu-token
+Modelo   : auto
+```
+
+Guía paso a paso para harnesses y APKs:
+[`docs/HARNESS.md`](docs/HARNESS.md). Desde el emulador usa
+`http://10.0.2.2:8080/v1`.
 
 ### Opción C · Docker
 
@@ -200,6 +208,8 @@ x-router-key: 0fed8044f40a
 | GET | `/health` | — | estado básico del servicio |
 | GET | `/v1/models` | cliente | modelos disponibles (`auto`, `proveedor/modelo`, sueltos) |
 | POST | `/v1/chat/completions` | cliente | chat con **streaming SSE** o JSON |
+| POST | `/v1/completions` | cliente | formato viejo (se traduce a chat) |
+| GET | `/v1/models/{id}` | cliente | consulta de un modelo concreto |
 | POST | `/v1/embeddings` | cliente | embeddings (Gemini, Mistral, Cohere, Cloudflare) |
 | GET | `/v1/router/status` | cliente | proveedores y claves libres, sin secretos |
 | GET | `/admin/status` | admin | estado completo con claves enmascaradas |
@@ -369,9 +379,9 @@ apk2/
 │   └── static/index.html  consola web de chat
 ├── config/providers.json    catálogo de 17 proveedores
 ├── clients/kotlin/          cliente Android (OkHttp + Flow)
-├── docs/                    API, proveedores, Android, despliegue, arquitectura
-├── scripts/                 doctor + instalación en Termux
-├── tests/                   38 tests sin llamadas de red
+├── docs/                    API, proveedores, harness, Android, despliegue
+├── scripts/                 doctor, instalación en Termux y arranque Android
+├── tests/                   42 tests sin llamadas de red
 ├── Dockerfile · docker-compose.yml
 ├── requirements.txt · .env.example
 └── README.md
@@ -387,7 +397,7 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-38 tests cubren rotación, cooldowns, cuotas, persistencia, selección de modelos,
+42 tests cubren rotación, cooldowns, cuotas, persistencia, selección de modelos,
 streaming, autenticación y endpoints, sin tocar la red (upstream simulado).
 
 ---
@@ -398,6 +408,7 @@ streaming, autenticación y endpoints, sin tocar la red (upstream simulado).
 |---|---|
 | [`docs/API.md`](docs/API.md) | endpoints, cabeceras, errores, ejemplos |
 | [`docs/PROVIDERS.md`](docs/PROVIDERS.md) | catálogo, límites, cómo añadir uno |
+| [`docs/HARNESS.md`](docs/HARNESS.md) | **pegar el router en tu harness/APK paso a paso** |
 | [`docs/ANDROID.md`](docs/ANDROID.md) | integración en la APK, TLS, batería, OpenAI SDK |
 | [`docs/DEPLOY.md`](docs/DEPLOY.md) | VPS, Docker, systemd, Caddy, Cloudflare Tunnel, Termux |
 | [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md) | algoritmo de rotación, estado, ampliaciones |

@@ -186,8 +186,10 @@ class RouterEngine:
         if matches:
             return matches
 
-        # Desconocido: se prueba tal cual y, si el proveedor dice 404, se usa su modelo por defecto.
-        return [Candidate(p, requested) for p in self.registry.routable()]
+        # Id desconocido (típico en harness que fijan "gpt-4" o similar).
+        # En vez de gastar 8 intentos en 404, usamos los modelos por defecto.
+        # Para forzar un modelo concreto usa "proveedor/modelo".
+        return self._auto_candidates()
 
     # ------------------------------------------------------------------ helpers
     @staticmethod

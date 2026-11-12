@@ -130,9 +130,7 @@ async def health(request: Request) -> dict:
 
 
 # ---------------------------------------------------------------------- modelos
-@router.get("/v1/models", dependencies=[Depends(require_client)])
-async def list_models(request: Request, all: bool = False) -> dict:
-    registry = request.app.state.registry
+def _model_entries(registry, include_all: bool = False) -> list[dict]:
     created = 1_700_000_000
     data: list[dict] = [
         {
@@ -147,20 +145,21 @@ async def list_models(request: Request, all: bool = False) -> dict:
     for provider in registry.ordered():
         if not provider.enabled or provider.disabled_reason:
             continue
-        if not provider.has_keys and not all:
+        if not provider.has_keys and not include_all:
             continue
         for model in provider.all_models():
+            meta = {"provider": provider.id, "model": model, "label": provider.label}
             qualified = f"{provider.id}/{model}"
+            seen.add(qualified)
             data.append(
                 {
                     "id": qualified,
                     "object": "model",
                     "created": created,
                     "owned_by": provider.id,
-                    "x_router": {"provider": provider.id, "model": model, "label": provider.label},
+                    "x_router": meta,
                 }
             )
-            seen.add(qualified)
             if model not in seen:
                 seen.add(model)
                 data.append(
@@ -169,10 +168,33 @@ async def list_models(request: Request, all: bool = False) -> dict:
                         "object": "model",
                         "created": created,
                         "owned_by": provider.id,
-                        "x_router": {"provider": provider.id, "model": model, "label": provider.label},
+                        "x_router": meta,
                     }
                 )
-    return {"object": "list", "data": data}
+    return data
+
+
+@router.get("/v1/models", dependencies=[Depends(require_client)])
+async def list_models(request: Request, all: bool = False) -> dict:
+    return {"object": "list", "data": _model_entries(request.app.state.registry, include_all=all)}
+
+
+@router.get("/v1/models/{model_id:path}", dependencies=[Depends(require_client)])
+async def get_model(request: Request, model_id: str) -> dict:
+    """Algunos clientes consultan el modelo uno a uno."""
+    wanted = model_id.strip()
+    entries = _model_entries(request.app.state.registry, include_all=True)
+    for entry in entries:
+        if entry["id"] == wanted or entry["id"].lower() == wanted.lower():
+            return entry
+    # Id libre: el router lo acepta y cae al modelo por defecto del proveedor.
+    return {
+        "id": wanted,
+        "object": "model",
+        "created": 1_700_000_000,
+        "owned_by": "router",
+        "x_router": {"description": "Id libre: se usará el modelo por defecto del proveedor"},
+    }
 
 
 # ------------------------------------------------------------------ chat/complet
@@ -197,6 +219,61 @@ async def chat_completions(request: Request):
 
     data, meta = await engine.complete(payload)
     return JSONResponse(content=data, headers=meta.headers())
+
+
+# ------------------------------------------------------- completions (formato viejo)
+@router.post("/v1/completions", dependencies=[Depends(require_client)])
+async def completions(request: Request):
+    """Compatibilidad con clientes que aún usan /v1/completions (texto plano).
+
+    Se traduce a chat internamente, así que se beneficia de toda la rotación.
+    """
+    try:
+        payload = await request.json()
+    except Exception:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail="JSON inválido en el cuerpo de la petición.")
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="El cuerpo debe ser un objeto JSON.")
+
+    prompt = payload.get("prompt")
+    if prompt is None:
+        raise HTTPException(status_code=400, detail="'prompt' es obligatorio.")
+    if isinstance(prompt, list):
+        prompt_text = "\n".join(str(item) for item in prompt)
+    else:
+        prompt_text = str(prompt)
+
+    messages: list[dict] = []
+    if payload.get("system"):
+        messages.append({"role": "system", "content": str(payload["system"])})
+    messages.append({"role": "user", "content": prompt_text})
+
+    chat_payload = {
+        key: value
+        for key, value in payload.items()
+        if key not in {"prompt", "system", "echo", "best_of", "suffix", "stream", "logprobs"}
+    }
+    chat_payload["messages"] = messages
+
+    data, meta = await _engine(request).complete(chat_payload)
+    try:
+        text = data["choices"][0]["message"]["content"] or ""
+    except (KeyError, IndexError, TypeError):
+        text = ""
+    usage = data.get("usage") or {}
+    body = {
+        "id": data.get("id") or "cmpl-router",
+        "object": "text_completion",
+        "created": int(time.time()),
+        "model": meta.model,
+        "choices": [{"text": text, "index": 0, "finish_reason": "stop", "logprobs": None}],
+        "usage": {
+            "prompt_tokens": int(usage.get("prompt_tokens") or 0),
+            "completion_tokens": int(usage.get("completion_tokens") or 0),
+            "total_tokens": int(usage.get("total_tokens") or 0),
+        },
+    }
+    return JSONResponse(content=body, headers=meta.headers())
 
 
 # -------------------------------------------------------------------- embeddings

@@ -131,3 +131,28 @@ def test_admin_reset_reactivates_keys():
     assert client.post("/admin/reset", headers=headers).status_code == 200
     status = client.get("/admin/status", headers=headers).json()
     assert status["providers"][0]["keys_available"] == 1
+
+
+def test_get_single_model():
+    client = build_client()
+    assert client.get("/v1/models/auto", headers=AUTH).json()["id"] == "auto"
+    assert client.get("/v1/models/p1/model-a", headers=AUTH).json()["id"] == "p1/model-a"
+    # Id libre: se acepta y el router usará el modelo por defecto.
+    libre = client.get("/v1/models/gpt-4-legacy", headers=AUTH).json()
+    assert libre["id"] == "gpt-4-legacy"
+
+
+def test_legacy_completions_endpoint():
+    client = build_client()
+    response = client.post("/v1/completions", headers=AUTH, json={"model": "auto", "prompt": "hola"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["object"] == "text_completion"
+    assert body["choices"][0]["text"] == "hola"
+    assert response.headers["x-router-provider"] == "p1"
+
+
+def test_legacy_completions_requires_prompt():
+    client = build_client()
+    response = client.post("/v1/completions", headers=AUTH, json={"model": "auto"})
+    assert response.status_code == 400

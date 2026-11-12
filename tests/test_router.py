@@ -67,10 +67,23 @@ def test_model_not_found_retries_with_default_model():
         [err_response(kind="model_not_found", status=404, error="model not found"), ok_response(model="model-a")],
     )
 
-    _, meta = _run(engine.complete({"model": "modelo-inventado", "messages": PAYLOAD["messages"]}))
+    _, meta = _run(engine.complete({"model": "p1/modelo-inventado", "messages": PAYLOAD["messages"]}))
 
     assert meta.model == "model-a"
     assert [c["model"] for c in upstream.calls] == ["modelo-inventado", "model-a"]
+
+
+def test_unknown_bare_model_uses_defaults_without_404_storm():
+    """Un harness que fija "gpt-4" no debe gastar 8 intentos en 404."""
+    p1 = make_provider("p1", priority=10)
+    p2 = make_provider("p2", priority=20)
+    engine, _, upstream = make_engine([p1, p2], [ok_response()])
+
+    _, meta = _run(engine.complete({"model": "gpt-4-legacy", "messages": PAYLOAD["messages"]}))
+
+    assert meta.provider == "p1"
+    assert meta.model == "model-a"
+    assert len(upstream.calls) == 1
 
 
 def test_unsupported_parameter_retries_sanitized():

@@ -1,6 +1,7 @@
 # Referencia de la API
 
-Base: `http://IP:8080`. Formato OpenAI. Autenticación con
+Base: `http://IP:8080`. Formato OpenAI (chat, completions y embeddings).
+Autenticación con
 `Authorization: Bearer <ROUTER_TOKEN>` en todo `/v1/*`
 (también se aceptan `X-API-Key` y `X-Router-Token`).
 
@@ -61,7 +62,15 @@ curl http://localhost:8080/v1/models -H "Authorization: Bearer $TOKEN"
 - `auto` → el router elige el mejor disponible.
 - `proveedor/modelo` → fuerza ese proveedor (si falla, se detiene ahí).
 - `modelo` suelto → busca coincidencias en todos los proveedores.
+- Un id **desconocido** (p. ej. `gpt-4` que fija un harness) se acepta y se usa
+  el modelo por defecto del proveedor, sin gastar intentos en 404.
 - `?all=true` incluye modelos de proveedores sin clave configurada.
+
+### `GET /v1/models/{id}`
+
+Devuelve el objeto del modelo pedido. Si el id no está en el catálogo, responde
+igual con `owned_by: router` (el router lo aceptará). Algunos clientes piden
+`/v1/models/auto` al conectar.
 
 ---
 
@@ -158,6 +167,26 @@ compatibilidad. `stream_options` se añade solo en streaming.
 | 503 | `no_keys` / `no_providers` / `no_candidates` | configuración incompleta |
 
 ---
+
+## `POST /v1/completions` (formato viejo)
+
+Para harnesses que aún no usan chat. Se traduce a `/v1/chat/completions`
+internamente, así que hereda rotación, fallback y errores.
+
+```bash
+curl http://localhost:8080/v1/completions \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"model":"auto","prompt":"Érase una vez","max_tokens":80}'
+```
+
+```json
+{"id":"cmpl-...","object":"text_completion","model":"llama-3.3-70b-versatile",
+ "choices":[{"text":"...","index":0,"finish_reason":"stop","logprobs":null}],
+ "usage":{"prompt_tokens":4,"completion_tokens":80,"total_tokens":84}}
+```
+
+`prompt` puede ser una cadena o una lista (se unen con saltos de línea).
+`system` se respeta; `echo`, `best_of`, `suffix` y `logprobs` se ignoran.
 
 ## `POST /v1/embeddings`
 
